@@ -1,0 +1,114 @@
+spring:
+  redis:
+    host: oracledb
+    port: 6379
+    password:
+  session:
+    store-type: redis
+    redis:
+      namespace: gateway
+    timeout: 1800
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://192.168.1.104/uaa/token_keys
+      client:
+        registration:
+          app:
+            provider: uaa
+            client-id: app
+            client-secret: appclientsecret
+            authorization-grant-type: authorization_code
+            redirect-uri-template: "{baseUrl}/login/oauth2/code/{registrationId}"
+            #scope: cloud_controller.read,cloud_controller.write,openid,password.write,scim.userids,organizations.acme,admin #openid,profile,email,resource.read
+        provider:
+          uaa:
+            authorization-uri: http://192.168.1.104/uaa/oauth/authorize
+            token-uri: http://192.168.1.104/uaa/oauth/token
+            user-info-uri: http://192.168.1.104/uaa/userinfo
+            user-name-attribute: user_name #sub
+            jwk-set-uri: http://192.168.1.104/uaa/token_keys
+  autoconfigure:
+    exclude: org.springframework.boot.actuate.autoconfigure.security.reactive.ReactiveManagementWebSecurityAutoConfiguration
+  application:
+    name: gateway
+  cloud:
+    gateway:
+      routes:
+        - id: uaa
+          uri: lb://uaa
+          predicates:
+            - Path=/uaa/**
+          filters:
+            - TokenRelay=
+            - RewriteResponseHeader=Location, , ^http(\*|s)?://(.*:.*@)?(([a-zA-Z0-9\-\*]+\.)*[a-zA-Z0-9\-]+\.)?[a-zA-Z0-9\-]+(:[0-9]+)?, http://192.168.1.104
+        - id: idcenter
+          uri: lb://idcenter
+          predicates:
+            - Path=/idcenter/**
+          filters:
+            - TokenRelay=
+            - RewriteResponseHeader=Location, , ^http(\*|s)?://(.*:.*@)?(([a-zA-Z0-9\-\*]+\.)*[a-zA-Z0-9\-]+\.)?[a-zA-Z0-9\-]+(:[0-9]+)?, http://192.168.1.104
+        - id: xxl-job-admin
+          uri: lb://xxl-job-admin
+          predicates:
+            - Path=/xxl-job-admin/**
+          filters:
+            - TokenRelay=
+            - RewriteResponseHeader=Location, , ^http(\*|s)?://(.*:.*@)?(([a-zA-Z0-9\-\*]+\.)*[a-zA-Z0-9\-]+\.)?[a-zA-Z0-9\-]+(:[0-9]+)?, http://192.168.1.104
+        - id: foundation
+          uri: lb://foundation
+          predicates:
+            - Path=/fnd/**
+          filters:
+            - TokenRelay=
+            - RewriteResponseHeader=Location, , ^http(\*|s)?://(.*:.*@)?(([a-zA-Z0-9\-\*]+\.)*[a-zA-Z0-9\-]+\.)?[a-zA-Z0-9\-]+(:[0-9]+)?, http://192.168.1.104
+        - id: eurekaHome
+          uri: lb://eureka
+          predicates:
+            - Path=/eureka
+          filters:
+            - StripPrefix=1
+        - id: eurekaResource
+          uri: lb://eureka
+          predicates:
+            - Path=/eureka/**
+        - id: h
+          uri: http://localhost:9527/
+          predicates:
+            - Path=/h/**
+        - id: home
+          uri: http://localhost:9527/
+          predicates:
+            - Path=/**
+
+      discovery:
+        locator:
+          enabled: false
+          lower-case-service-id: true
+      enabled: true
+server:
+  session:
+    cookie:
+      name: gsession
+  port: 80
+  servlet:
+    session:
+      cookie:
+        name: gsession
+        path: /
+eureka:
+  client:
+    service-url:
+      default-zone: http://192.168.1.104:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+logging:
+  level:
+    root: TRACE
+    org.springframework.cloud.gateway: TRACE
+    org.springframework.http.server.reactive: DEBUG
+    org.springframework.web.reactive: DEBUG
+    reactor.ipc.netty: DEBUG
